@@ -2,7 +2,7 @@ from typing import Any
 
 
 class ApiError(Exception):
-    """业务错误：状态码 + 错误码 + 给用户看的提示"""
+    """业务错误：状态码、稳定错误码、提示、详情与响应头。"""
 
     def __init__(
         self,
@@ -12,6 +12,7 @@ class ApiError(Exception):
         *,
         details: dict[str, Any] | None = None,
         retryable: bool = False,
+        headers: dict[str, str] | None = None,
     ) -> None:
         super().__init__(message)
         self.status_code = status_code
@@ -19,3 +20,4 @@ class ApiError(Exception):
         self.message = message
         self.details = details or {}
         self.retryable = retryable
+        self.headers = headers or {}

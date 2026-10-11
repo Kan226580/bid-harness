@@ -7,6 +7,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Integer,
     String,
     Text,
@@ -24,6 +25,14 @@ class Project(Base):
     __tablename__ = "projects"
 
     __table_args__ = (
+        Index("ix_projects_org_created", "org_id", text("created_at DESC"), text("id DESC")),
+        Index(
+            "ix_projects_org_status_created",
+            "org_id",
+            "status",
+            text("created_at DESC"),
+            text("id DESC"),
+        ),
         UniqueConstraint(
             "org_id",
             "id",
