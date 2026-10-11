@@ -128,5 +128,22 @@ jobs:
       - name: mypy 类型检查
         run: uv run mypy
 
+      - name: 初始化数据库角色
+        env:
+          PGPASSWORD: dev_only_password
+        run: |
+          psql -h 127.0.0.1 -U harness -d harness \
+            -v ON_ERROR_STOP=1 \
+            -1 \
+            -f scripts/sql/bootstrap_roles.sql
+
+          psql -h 127.0.0.1 -U harness -d harness \
+            -v ON_ERROR_STOP=1 <<'SQL'
+          ALTER ROLE migration_owner PASSWORD 'ci_migration_only';
+          ALTER ROLE app_runtime PASSWORD 'ci_app_only';
+          ALTER ROLE auth_service PASSWORD 'ci_auth_only';
+          ALTER ROLE ops_runtime PASSWORD 'ci_ops_only';
+          SQL
+
       - name: pytest 单元测试
         run: uv run pytest -q
