@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session as DbSession
 from backend.app.api.errors import ok
 from backend.app.core.cookies import clear_session_cookie, set_session_cookie
 from backend.app.core.security import derive_csrf_token
-from backend.app.db.session import get_db
+from backend.app.db.session import get_auth_db
 from backend.app.models.identity.schemas import (
     ChangePasswordRequest,
     LoginRequest,
@@ -26,7 +26,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/login")
 def login(
-    payload: LoginRequest, request: Request, response: Response, db: DbSession = Depends(get_db)
+    payload: LoginRequest,
+    request: Request,
+    response: Response,
+    db: DbSession = Depends(get_auth_db),
 ) -> dict[str, Any]:
     """
     校验 → 建会话 → 存哈希 → 发 Cookie + csrf_token
@@ -69,7 +72,9 @@ def me(
 
 
 @router.post("/logout", status_code=204)
-def logout(ctx: AuthContext = Depends(require_csrf), db: DbSession = Depends(get_db)) -> Response:
+def logout(
+    ctx: AuthContext = Depends(require_csrf), db: DbSession = Depends(get_auth_db)
+) -> Response:
     """撤销当前会话 + 删 Cookie，返回 204，要带 CSRF 头"""
     revoke_session(db, ctx.session)
     response = Response(status_code=204)
@@ -83,7 +88,7 @@ def change_password_endpoint(
     request: Request,
     response: Response,
     ctx: AuthContext = Depends(require_csrf),
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_auth_db),
 ) -> dict[str, Any]:
     """
     验旧密码 → 换新哈希 → 撤销所有旧会话 → 发新 Cookie 和新 csrf_token

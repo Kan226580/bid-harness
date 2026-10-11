@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session as DbSession
 from backend.app.core.cookies import SESSION_COOKIE_NAME
 from backend.app.core.errors import ApiError
 from backend.app.core.security import verify_csrf_token
-from backend.app.db.session import get_db
+from backend.app.db.session import get_auth_db
 from backend.app.models import (
     Organization,
     User,
@@ -39,7 +39,7 @@ def session_expired() -> ApiError:
 
 def require_session(
     request: Request,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_auth_db),
 ) -> AuthContext:
     """受保护接口的门卫：没登陆、过期、被撤销、账号停用，统统 [会话已过期]"""
 
@@ -58,8 +58,12 @@ def require_session(
     if user is None or not user.is_active:
         raise session_expired()
 
+    if user.org_id != record.org_id:
+        raise session_expired()
+
     # 组织停用
     organization = db.get(Organization, user.org_id)
+
     if organization is None or not organization.is_active:
         raise session_expired()
 

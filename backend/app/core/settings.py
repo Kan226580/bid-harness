@@ -1,33 +1,12 @@
-from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, computed_field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# 项目根路径
-BASE_DIR = Path(__file__).resolve().parents[3]
+from backend.app.core.db_setting import BASE_DIR, DbSettings
 
 # 环境名称
 EnvName = Literal["dev", "test", "prod"]
-
-
-class DbSettings(BaseModel):
-    """PostgreSQL settings"""
-
-    model_config = ConfigDict(extra="forbid")
-
-    host: str = Field(..., min_length=1, description="数据库主机")
-    port: int = Field(default=5432, ge=1, le=65535, description="数据库端口")
-    username: str = Field(..., min_length=1, description="数据库用户")
-    hashed_password: SecretStr = Field(..., min_length=1, description="数据库密码")
-    name: str = Field(..., min_length=1, description="数据库名")
-    driver: str = Field(default="postgresql+asyncpg", description="数据库驱动")
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def url(self) -> str:
-        pwd = self.hashed_password.get_secret_value()
-        return f"{self.driver}://{self.username}:{pwd}@{self.host}:{self.port}/{self.name}"
 
 
 class RedisSettings(BaseModel):
@@ -69,9 +48,33 @@ class Settings(BaseSettings):
     )
 
     env: EnvName = "prod"
+
     db: DbSettings
+    auth_db: DbSettings
+    ops_db: DbSettings
+
     redis: RedisSettings
     security: SecuritySettings
+
+    @model_validator(mode="after")
+    def validate_database_connections(self) -> Self:
+        expected_roles = (
+            (self.db, "app_runtime"),
+            (self.auth_db, "auth_service"),
+            (self.ops_db, "ops_runtime"),
+        )
+
+        for config, expected_role in expected_roles:
+            if config.username != expected_role:
+                raise ValueError(f"数据库连接必须使用 {expected_role}")
+
+        target = (self.db.host, self.db.port, self.db.name)
+
+        for config in (self.auth_db, self.ops_db):
+            if (config.host, config.port, config.name) != target:
+                raise ValueError("业务、认证和调度连接必须指向同一数据库")
+
+        return self
 
 
 settings = Settings()

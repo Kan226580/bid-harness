@@ -28,17 +28,49 @@ jobs:
 
     env:
       ENV: test
+
       DB__HOST: 127.0.0.1
       DB__PORT: "5432"
-      DB__USERNAME: harness
-      DB__HASHED_PASSWORD: dev_only_password
+      DB__USERNAME: app_runtime
+      DB__HASHED_PASSWORD: ci_app_only
       DB__DRIVER: postgresql+psycopg2
       DB__NAME: harness
+
+      AUTH_DB__HOST: 127.0.0.1
+      AUTH_DB__PORT: "5432"
+      AUTH_DB__USERNAME: auth_service
+      AUTH_DB__HASHED_PASSWORD: ci_auth_only
+      AUTH_DB__NAME: harness
+      AUTH_DB__DRIVER: postgresql+psycopg2
+
+      OPS_DB__HOST: 127.0.0.1
+      OPS_DB__PORT: "5432"
+      OPS_DB__USERNAME: ops_runtime
+      OPS_DB__HASHED_PASSWORD: ci_ops_only
+      OPS_DB__NAME: harness
+      OPS_DB__DRIVER: postgresql+psycopg2
+
+      MIGRATION_DB__HOST: 127.0.0.1
+      MIGRATION_DB__PORT: "5432"
+      MIGRATION_DB__USERNAME: migration_owner
+      MIGRATION_DB__HASHED_PASSWORD: ci_migration_only
+      MIGRATION_DB__NAME: harness
+      MIGRATION_DB__DRIVER: postgresql+psycopg2
+
+      ADMIN_DB__HOST: 127.0.0.1
+      ADMIN_DB__PORT: "5432"
+      ADMIN_DB__USERNAME: harness
+      ADMIN_DB__HASHED_PASSWORD: dev_only_password
+      ADMIN_DB__NAME: harness
+      ADMIN_DB__DRIVER: postgresql+psycopg2
+
       REDIS__HOST: 127.0.0.1
       REDIS__PORT: "6379"
       REDIS__DB: "0"
       REDIS__HASHED_PASSWORD: ci_only_not_a_secret
+
       HARNESS_TEST_DB_NAME: harness_test
+
       SECURITY__CSRF_SIGNING_KEY: ci_only_signing_key_not_a_real_secret_0000
 
     services:
@@ -95,6 +127,23 @@ jobs:
 
       - name: mypy 类型检查
         run: uv run mypy
+
+      - name: 初始化数据库角色
+        env:
+          PGPASSWORD: dev_only_password
+        run: |
+          psql -h 127.0.0.1 -U harness -d harness \
+            -v ON_ERROR_STOP=1 \
+            -1 \
+            -f scripts/sql/bootstrap_roles.sql
+
+          psql -h 127.0.0.1 -U harness -d harness \
+            -v ON_ERROR_STOP=1 <<'SQL'
+          ALTER ROLE migration_owner PASSWORD 'ci_migration_only';
+          ALTER ROLE app_runtime PASSWORD 'ci_app_only';
+          ALTER ROLE auth_service PASSWORD 'ci_auth_only';
+          ALTER ROLE ops_runtime PASSWORD 'ci_ops_only';
+          SQL
 
       - name: pytest 单元测试
         run: uv run pytest -q
