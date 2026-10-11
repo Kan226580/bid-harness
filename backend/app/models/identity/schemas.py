@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.app.models import Organization, User
@@ -20,6 +22,15 @@ class ChangePasswordRequest(BaseModel):
 
     current_password: str = Field(min_length=1, max_length=128)
     new_password: str = Field(min_length=12, max_length=128)
+
+
+class CreateMemberRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: str = Field(min_length=3, max_length=254)
+    display_name: str = Field(min_length=1, max_length=50)
+    role: Literal["admin", "writer", "reviewer"]
+    temporary_password: str = Field(min_length=12, max_length=128)
 
 
 def user_summary(user: User) -> dict[str, object]:

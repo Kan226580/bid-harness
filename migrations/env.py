@@ -1,9 +1,9 @@
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import create_engine, pool
 
-from backend.app.core.settings import settings
+from backend.app.core.db_setting import MigrationSettings
 
 # ----- 1.导入 Base 和所有模型
 from backend.app.db.base import Base
@@ -20,11 +20,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # ----- 2.从环境变量读取同步数据库 URL
-database_url = settings.db.url
-# -----
-
-# ----- configparser 会插值，% 需要转义
-config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
+database_url = MigrationSettings().migration_db.url
 # -----
 
 # add your model's MetaData object here
@@ -55,9 +51,8 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
     context.configure(
-        url=url,
+        url=database_url,
         target_metadata=target_metadata,
         literal_binds=True,
         include_schemas=True,
@@ -76,21 +71,24 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    connectable = create_engine(
+        database_url,
         poolclass=pool.NullPool,
     )
 
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            compare_type=True,  # ----- 可选：检测字段类型变化
-        )
+    try:
+        with connectable.connect() as connection:
+            context.configure(
+                connection=connection,
+                target_metadata=target_metadata,
+                include_schemas=True,
+                compare_type=True,
+            )
 
-        with context.begin_transaction():
-            context.run_migrations()
+            with context.begin_transaction():
+                context.run_migrations()
+    finally:
+        connectable.dispose()
 
 
 if context.is_offline_mode():

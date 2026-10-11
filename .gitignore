@@ -12,7 +12,10 @@ __pycache__/
 /coverage/
 
 # 环境与数据：密钥文件、日志、本地数据
-.env
+.env.*
+!.env.example
+!.env.admin.example
+!.env.migration.example
 /*.log
 /var/
 
@@ -20,3 +23,4 @@ __pycache__/
 /.idea/
 /Thumbs.db
 /.DS_Store
+/.env

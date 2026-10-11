@@ -3,9 +3,9 @@ services:
     image: pgvector/pgvector:pg17
     restart: unless-stopped
     environment:
-      POSTGRES_USER: "${DB__USERNAME:-harness}"
-      POSTGRES_PASSWORD: "${DB__HASHED_PASSWORD:?缺少 DB__HASHED_PASSWORD：请复制 .env.example 为 .env 并填写}"
-      POSTGRES_DB: "${DB__NAME:-harness}"
+      POSTGRES_USER: "${ADMIN_DB__USERNAME:?缺少 ADMIN_DB__USERNAME}"
+      POSTGRES_PASSWORD: "${ADMIN_DB__HASHED_PASSWORD:?缺少 ADMIN_DB__HASHED_PASSWORD}"
+      POSTGRES_DB: "${ADMIN_DB__NAME:?缺少 ADMIN_DB__NAME}"
     ports:
       - "5432:5432"
     volumes:

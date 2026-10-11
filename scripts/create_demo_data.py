@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from backend.app.core.security import hash_password
-from backend.app.db.session import SessionLocal
+from backend.app.db.session import AuthSessionLocal
 from backend.app.models import Organization, User
 
 MIN_PASSWORD_LENGTH = 12
@@ -90,7 +90,7 @@ def main() -> int:
         if password in {writer_email, reviewer_email}:
             raise SystemExit("密码不能和邮箱相同")
 
-    with SessionLocal() as db:
+    with AuthSessionLocal() as db:
         organization = db.execute(
             select(Organization).where(Organization.slug == slug)
         ).scalar_one_or_none()
