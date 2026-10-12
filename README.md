@@ -36,19 +36,114 @@ docker compose --env-file ./.env --env-file ./.env.admin -f deploy/compose.yaml 
 docker compose --env-file ./.env --env-file ./.env.admin -f deploy/compose.yaml logs postgres
 ```
 
-- FastAPI
+- 后端
 
 ```bash
 uv run uvicorn backend.app.main:app --reload
 ```
 
+- 前端
+
+```bash
+Set-Location D:\proj\harness\frontend
+npm run dev
+```
+
+## 数据库
+
+- 创建角色
+
+```bash
+Get-Content -LiteralPath .\scripts\sql\bootstrap_roles.sql -Raw -Encoding utf8 |
+    docker compose --env-file ./.env --env-file ./.env.admin -f deploy/compose.yaml exec -T postgres psql -1 -v ON_ERROR_STOP=1 -U <ADMIN_DB__USERNAME> -d <ADMIN_DB__NAME>
+```
+
+- 管理员连接
+
+```bash
+docker compose --env-file ./.env --env-file ./.env.admin -f deploy/compose.yaml exec postgres psql -U <ADMIN_DB__USERNAME> -d <ADMIN_DB__NAME>
+```
+
+- 角色密码设置
+
+```bash
+\password migration_owner
+\password app_runtime
+\password auth_service
+\password ops_runtime
+```
+
+- 数据库同步
+
+```bash
+uv run alembic history
+uv run alembic upgrade head
+uv run alembic current
+```
+
+- 演示账号
+
+```bash
+$$env:DEMO_ORG_SLUG = 'demo-construction'
+
+$$env:DEMO_WRITER_EMAIL = 'writer@123.com'
+$$env:DEMO_REVIEWER_EMAIL = 'reviewer@123.com'
+$$env:DEMO_ADMIN_EMAIL = 'admin@123.com'
+
+$$env:DEMO_WRITER_PASSWORD = Read-Host '输入演示 writer 密码（至少12位）' -MaskInput
+$$env:DEMO_REVIEWER_PASSWORD = Read-Host '输入演示 reviewer 密码（至少12位）' -MaskInput
+$$env:DEMO_ADMIN_PASSWORD = Read-Host '输入演示 admin 密码（至少12位）' -MaskInput
+
+$$env:DEMO_MUTE_CHANGE_PASSWORD = 'true'
+
+uv run python -m scripts.create_demo_data
+
+Remove-Item Env:\DEMO_WRITER_PASSWORD,Env:\DEMO_REVIEWER_PASSWORD
+```
+
+## 测试
+
+- 后端
+
+```bash
+uv run pytest
+```
+
+- 前端
+
+```bash
+cd ./frontend
+
+$$env:E2E_ORG_SLUG = 'demo-construction'
+$$env:E2E_ADMIN_EMAIL = Read-Host '输入本地测试管理员邮箱'
+$$env:E2E_ADMIN_PASSWORD = Read-Host '输入已经改过的管理员密码' -MaskInput
+npm run test:e2e
+Remove-Item Env:\E2E_ADMIN_PASSWORD
+
+cd ../
+```
+
 ## 代码质检
 
-- CI
+- 后端
 
 ```bash
 uv run ruff check --fix .
 uv run ruff format .
 uv run ruff format --check .
 uv run mypy
+```
+
+- 前端
+
+```bash
+cd ./frontend
+
+npm run format
+npm run format:check
+npm run lint
+npm run typecheck
+npm run build
+
+cd ../
 ```

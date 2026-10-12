@@ -24,7 +24,7 @@ jobs:
   backend:
     name: 后端质量门禁（ruff / mypy / pytest）
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     env:
       ENV: test
@@ -72,6 +72,9 @@ jobs:
       HARNESS_TEST_DB_NAME: harness_test
 
       SECURITY__CSRF_SIGNING_KEY: ci_only_signing_key_not_a_real_secret_0000
+
+      E2E_ORG_SLUG: ci-e2e
+      E2E_ADMIN_EMAIL: admin@ci.example.com
 
     services:
       postgres:
@@ -145,5 +148,135 @@ jobs:
           ALTER ROLE ops_runtime PASSWORD 'ci_ops_only';
           SQL
 
-      - name: pytest 单元测试
+      - name: pytest 单元/集成 测试
         run: uv run pytest -q
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安装 E2E 依赖
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: 迁移 E2E 数据库
+        run: uv run alembic upgrade head
+
+      - name: 创建 E2E 专用管理员
+        run: |
+          uv run python - <<'PY'
+          import os
+          import secrets
+          
+          from backend.app.core.security import hash_password
+          from backend.app.core.settings import settings
+          from backend.app.db.session import AuthSessionLocal
+          from backend.app.models import Organization, User
+          
+          if (
+              os.environ.get("CI") != "true"
+              or settings.env != "test"
+              or settings.auth_db.name != "harness"
+          ):
+              raise SystemExit("仅允许在 CI 临时数据库创建 E2E 账号")
+          
+          password = secrets.token_urlsafe(24)
+          print(f"::add-mask::{password}", flush=True)
+          
+          with AuthSessionLocal.begin() as db:
+              organization = Organization(
+                  slug=os.environ["E2E_ORG_SLUG"],
+                  name="CI 测试组织",
+              )
+              db.add(organization)
+              db.flush()
+          
+              db.add(User(
+                  org_id=organization.id,
+                  email=os.environ["E2E_ADMIN_EMAIL"],
+                  display_name="CI 管理员",
+                  password_hash=hash_password(password),
+                  role="admin",
+                  must_change_password=False,
+              ))
+          
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
+              output.write(f"E2E_ADMIN_PASSWORD={password}\n")
+          PY
+
+      - name: 启动 API 并运行前端 E2E
+        env:
+          CI: "true"
+          SECURITY__PUBLIC_ORIGIN: http://127.0.0.1:5173
+        shell: bash
+        run: |
+          uv run uvicorn backend.app.main:app \
+            --host 127.0.0.1 --port 8000 \
+            > "$RUNNER_TEMP/e2e-api.log" 2>&1 &
+          
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          
+          ready=false
+          for attempt in {1..60}; do
+            if ! kill -0 "$api_pid" 2>/dev/null; then
+              break
+            fi
+            if curl --fail --silent --max-time 2 \
+              http://127.0.0.1:8000/health/live > /dev/null; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          
+          if [ "$ready" != true ]; then
+            cat "$RUNNER_TEMP/e2e-api.log"
+            exit 1
+          fi
+          
+          cd frontend
+          npm run test:e2e || {
+            cat "$RUNNER_TEMP/e2e-api.log"
+            exit 1
+          }
+
+  frontend:
+    name: 前端质量门禁
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安装前端依赖
+        run: npm ci
+
+      - name: 格式检查
+        run: npm run format:check
+
+      - name: ESLint 检查
+        run: npm run lint
+
+      - name: TypeScript 类型检查
+        run: npm run typecheck
+
+      - name: 构建前端
+        run: npm run build
