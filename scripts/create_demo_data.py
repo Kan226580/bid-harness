@@ -1,10 +1,12 @@
 """
-演示数据
+生成演示数据
 
 $env:DEMO_WRITER_PASSWORD = "换成长密码至少12位"
 $env:DEMO_REVIEWER_PASSWORD = "再换一个长密码至少12位"
+$env:DEMO_ADMIN_PASSWORD = "再换一个长密码至少12位"
 $env:DEMO_WRITER_EMAIL = "writer@example.invalid"
 $env:DEMO_REVIEWER_EMAIL = "reviewer@example.invalid"
+$env:DEMO_ADMIN_EMAIL = "admin@example.invalid"
 
 uv run python -m scripts.create_demo_data
 """
@@ -73,8 +75,10 @@ def main() -> int:
 
     writer_email = require_env("DEMO_WRITER_EMAIL")
     reviewer_email = require_env("DEMO_REVIEWER_EMAIL")
+    admin_email = require_env("DEMO_ADMIN_EMAIL")
     writer_password = require_env("DEMO_WRITER_PASSWORD")
     reviewer_password = require_env("DEMO_REVIEWER_PASSWORD")
+    admin_password = require_env("DEMO_ADMIN_PASSWORD")
     must_change = os.environ.get("DEMO_MUTE_CHANGE_PASSWORD", "true").lower() in {
         "1",
         "true",
@@ -84,10 +88,11 @@ def main() -> int:
     for env_name, password in (
         ("DEMO_WRITER_PASSWORD", writer_password),
         ("DEMO_REVIEWER_PASSWORD", reviewer_password),
+        ("DEMO_ADMIN_PASSWORD", admin_password),
     ):
         if len(password) < MIN_PASSWORD_LENGTH:
             raise SystemExit(f"{env_name} 太短，至少 {MIN_PASSWORD_LENGTH} 个字符")
-        if password in {writer_email, reviewer_email}:
+        if password in {writer_email, reviewer_email, admin_email}:
             raise SystemExit("密码不能和邮箱相同")
 
     with AuthSessionLocal() as db:
@@ -120,6 +125,15 @@ def main() -> int:
             role="reviewer",
             password=reviewer_password,
             must_change_password=must_change,
+        )
+        upsert_user(
+            db,
+            organization,
+            email=admin_email,
+            display_name="本地演示管理员",
+            role="admin",
+            password=admin_password,
+            must_change_password=True,
         )
         db.commit()
 

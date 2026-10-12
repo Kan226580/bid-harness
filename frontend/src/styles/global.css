@@ -1,0 +1,112 @@
+:root {
+  font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  color: #243746;
+  background: #f3f5f7;
+  line-height: 1.6;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-layout {
+  min-height: 100vh;
+}
+
+.app-header {
+  height: auto;
+  min-height: 72px;
+  padding: 16px 28px;
+  background: #fff;
+  border-bottom: 1px solid #e4e9ee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  line-height: 1.6;
+}
+
+.app-header h4,
+.page-heading h2 {
+  margin: 0;
+}
+
+.page-shell {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 28px;
+}
+
+.page-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.project-toolbar,
+.pagination-bar {
+  margin: 20px 0;
+}
+
+.project-toolbar .ant-input-search {
+  width: 320px;
+  max-width: 100%;
+}
+
+.project-toolbar .ant-select {
+  min-width: 140px;
+}
+
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.login-card,
+.password-card {
+  width: 100%;
+  max-width: 480px;
+}
+
+.password-card {
+  margin: 24px auto;
+}
+
+.login-card .ant-form,
+.password-card .ant-form {
+  margin-top: 24px;
+}
+
+.ant-alert {
+  margin-bottom: 16px;
+}
+
+.page-loading {
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+@media (max-width: 600px) {
+  .page-shell,
+  .app-header {
+    padding: 16px;
+  }
+
+  .login-shell {
+    padding: 16px;
+  }
+}
