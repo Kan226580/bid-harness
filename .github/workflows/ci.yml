@@ -178,7 +178,7 @@ jobs:
       - name: A8 六条可靠性验收
         shell: bash
         run: |
-          uv run pytest -q backend/tests/integration/test_runs_a8.py \
+          uv run pytest -q backend/tests/integration/test_runs.py \
             -m reliability \
             --basetemp "$RUNNER_TEMP/a8-reliability"
 
