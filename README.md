@@ -106,6 +106,7 @@ Remove-Item Env:\DEMO_WRITER_PASSWORD,Env:\DEMO_REVIEWER_PASSWORD
 - 后端
 
 ```bash
+# 如果本地 postgre 占用 5432 端口，需要先停止服务
 uv run pytest
 ```
 

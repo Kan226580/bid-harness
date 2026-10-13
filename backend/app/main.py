@@ -5,6 +5,7 @@ from backend.app.api.middleware import OriginCheckMiddleware, RequestIdMiddlewar
 from backend.app.api.v1.auth import router as auth_router
 from backend.app.api.v1.members import router as members_router
 from backend.app.api.v1.projects import router as projects_router
+from backend.app.api.v1.runs import router as runs_router
 
 app = FastAPI(
     title="工程标书 AI Harness Agent", swagger_ui_parameters={"persistAuthorization": True}
@@ -17,6 +18,7 @@ install_error_handlers(app)
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(projects_router, prefix="/api/v1")
 app.include_router(members_router, prefix="/api/v1")
+app.include_router(runs_router, prefix="/api/v1")
 
 
 @app.get("/health/live")

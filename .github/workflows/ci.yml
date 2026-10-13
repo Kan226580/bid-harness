@@ -65,8 +65,8 @@ jobs:
       ADMIN_DB__DRIVER: postgresql+psycopg2
 
       REDIS__HOST: 127.0.0.1
-      REDIS__PORT: "6379"
-      REDIS__DB: "0"
+      REDIS__PORT: "6381"
+      REDIS__DB: "15"
       REDIS__HASHED_PASSWORD: ci_only_not_a_secret
 
       HARNESS_TEST_DB_NAME: harness_test
@@ -148,8 +148,55 @@ jobs:
           ALTER ROLE ops_runtime PASSWORD 'ci_ops_only';
           SQL
 
-      - name: pytest 单元/集成 测试
-        run: uv run pytest -q
+      - name: 启动 A8 专用 Redis
+        shell: bash
+        run: |
+          container_id=$(docker run --detach \
+            --name "a8-redis-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --label harness.a8-reliability=true \
+            --publish 127.0.0.1:6381:6379 \
+            redis:7 redis-server --appendonly yes \
+            --requirepass "$REDIS__HASHED_PASSWORD")
+          echo "A8_REDIS_CONTAINER_ID=$container_id" >> "$GITHUB_ENV"
+          ready=false
+          for attempt in {1..30}; do
+            if docker exec -e REDISCLI_AUTH="$REDIS__HASHED_PASSWORD" \
+              "$container_id" redis-cli ping | grep -q PONG; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then
+            docker logs "$container_id"
+            exit 1
+          fi
+
+      - name: 单元与普通集成测试
+        run: uv run pytest -q -m "not reliability"
+
+      - name: A8 六条可靠性验收
+        shell: bash
+        run: |
+          uv run pytest -q backend/tests/integration/test_runs.py \
+            -m reliability \
+            --basetemp "$RUNNER_TEMP/a8-reliability"
+
+      - name: 保存 A8 故障日志
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a8-reliability-logs
+          path: ${{ runner.temp }}/a8-reliability
+          if-no-files-found: ignore
+
+      - name: 清理 A8 Redis
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${A8_REDIS_CONTAINER_ID:-}" ]; then
+            docker rm -f "$A8_REDIS_CONTAINER_ID"
+          fi
 
       - name: 安装 Node.js
         uses: actions/setup-node@v6
