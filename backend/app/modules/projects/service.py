@@ -10,6 +10,7 @@ from backend.app.core.errors import ApiError
 from backend.app.core.pagination import CursorAnchor, paginate
 from backend.app.core.principal import Principal
 from backend.app.db.tenant import tenant_transaction
+from backend.app.models import Run
 from backend.app.models.chapters import Chapter
 from backend.app.models.projects import Project
 from backend.app.modules.operations.idempotency import WriteResult, execute_idempotent
@@ -20,6 +21,7 @@ from backend.app.modules.projects.repository import (
     update_project_if_version_matches,
 )
 from backend.app.modules.projects.schemas import project_summary
+from backend.app.modules.runs.domain import TERMINAL_STATUSES
 
 DEFAULT_CHAPTERS = (
     ("施工方案", "construction"),
@@ -331,12 +333,18 @@ def ensure_no_active_runs(
     *,
     project_id: uuid.UUID,
 ) -> None:
-    """A8 回填：检查本组织本项目是否还有非终态运行。"""
-    # TODO(A8): 在同一事务、持有项目锁时查询 app.runs。
-    # queued/running/waiting_input 均属非终态；存在则抛 409 RUNS_ACTIVE。
-    # 创建/恢复运行也要取得同一个项目锁并重新检查 active。
-    # 当前没有 runs 表，暂不检查；对应测试必须 skip，并在 PR 写明。
-    return None
+    """调用者持有项目锁；存在任何非终态运行都不能归档。"""
+    active_id = db.execute(
+        select(Run.id)
+        .where(
+            Run.org_id == actor.org_id,
+            Run.project_id == project_id,
+            Run.status.not_in(TERMINAL_STATUSES),
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+    if active_id is not None:
+        raise ApiError(409, "RUNS_ACTIVE", "项目仍有未结束的运行")
 
 
 def archive_project(

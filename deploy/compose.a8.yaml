@@ -1,0 +1,43 @@
+services:
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/worker.Dockerfile
+    env_file: ../.env
+    environment: &a8_environment
+      DB__HOST: postgres
+      AUTH_DB__HOST: postgres
+      OPS_DB__HOST: postgres
+      REDIS__HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  dispatcher:
+    build:
+      context: ..
+      dockerfile: deploy/worker.Dockerfile
+    env_file: ../.env
+    environment: *a8_environment
+    command: ["python", "-m", "backend.app.workers.dispatcher"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  recovery:
+    build:
+      context: ..
+      dockerfile: deploy/worker.Dockerfile
+    env_file: ../.env
+    environment: *a8_environment
+    command: ["python", "-m", "backend.app.workers.recovery"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped

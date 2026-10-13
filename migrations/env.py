@@ -3,6 +3,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import create_engine, pool
 
+import backend.app.models  # noqa: F401
 from backend.app.core.db_setting import MigrationSettings
 
 # ----- 1.导入 Base 和所有模型
